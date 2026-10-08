@@ -1,0 +1,21 @@
+{
+  "cluster": "http://127.0.0.1:8899",
+  "programId": "EmAPVEMNMa5vmS2GaFSjfNjg1JeWyUhy4fCe3c6PyoMp",
+  "jobPda": "8CHqaYhRs5PeohExu8HE1DMYSNcNqfyhFtRQGNdJFzQ1",
+  "escrowAta": "75iMjLtxkqVzaQJmxzx9wn8VfL5NSfkfzgRYzKkupynb",
+  "business": "3Xh8LoB3oJt2ZEy7Arv8RpukkzxiJH477eLJhP84Aj19",
+  "worker": "26E3aApEgpc1KT7XYvnqaJf8woTB778JCpXeWBvJARnt",
+  "verifier": "5MuvuBpY2UzJGUuftReogAPKWhYKhU7vnh8HnBdUKx5c",
+  "usdcMint": "9cWqsYkRNZNxTbMUywXDnfo1ZvFbWEmc1JoTKDJv7V1c",
+  "submissionId": "slice-ok-65036972",
+  "attestationId": "cmuzk139v0013s6o65gjm7xu6",
+  "attestationDigest": "24715fc290d2bc1e8cb601952cc474e9f6684e45411c2111d340c7fb31a702ac",
+  "sigCreate": "aATP1JfH46Akd7emF3AqhqyfViQDLJBmZrkf6NiY3Synn5EP3WunipZhVQz4zycNz2UFCv3GmfJ5ZnPyz3QK1rt",
+  "sigFund": "5r6D1dkrvHEFBxca4bp3xBeQaP3RJaYa7eCC1FC3zvcz47LqPHqnQXKMjoUMzdiHnMvgSuttRsZseu8mcWz1priZ",
+  "sigAccept": "Fyjjb2CM1fBnSxth6Yrikz9racMEXQRZCbZDGUp2cSAfz8JaYUonSiDdHtriFRk765Wp3X2zDebJB97qe1gKka3",
+  "sigSubmit": "3aHABohZAHGHc31FjENVfnM22w1xtsyd7tA2TiF59ixMcQxVcLHdBTf2Js53yiHbbZharMt9Tc3t4GJR6WbiYxyv",
+  "verifyTx": "4qJtFzaJfXicY5hMP47GGn3HpWS9JyMLuhqiyneHGrDsEECbtHKUi33Z4SWzySVkmdYbtpzdg9JtpSVKURUKHYpD",
+  "releaseTx": "4HWPaMMiKmtBnkYAeKcrDXtx6i4PmEry1PB232nLL6qD4dW6exgVJkSF1QmCGprP5Nn5NJCSfq11jA6WbQhRUC12",
+  "workerBalanceBefore": 0,
+  "workerBalanceAfter": 150000000
+}
