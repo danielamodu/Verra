@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Verra",
+    "slug": "verra",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0B1020"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "app.verra.mobile",
+      "versionCode": 2,
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "ProofPay needs camera access to capture work evidence."
+        }
+      ]
+    ]
+  }
+}
