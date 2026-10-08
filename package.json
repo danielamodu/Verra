@@ -1,0 +1,30 @@
+{
+  "name": "proofpay",
+  "version": "0.1.0",
+  "description": "ProofPay V1 — verified field work → instant USDC settlement",
+  "license": "MIT",
+  "scripts": {
+    "test": "npx ts-mocha -p ./tsconfig.json -t 10000 tests/state-machine.unit.ts tests/verification.unit.ts tests/attestation.unit.ts",
+    "test:unit": "npx ts-mocha -p ./tsconfig.json -t 10000 tests/state-machine.unit.ts tests/verification.unit.ts tests/attestation.unit.ts",
+    "test:devnet": "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/proofpay.ts tests/verification-integration.ts",
+    "lint": "npx tsc --noEmit",
+    "build": "npx tsc --noEmit && echo \"TS typecheck passed (on-chain build requires: anchor build)\""
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@noble/curves": "^1.4.0",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.0",
+    "bs58": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/bs58": "^4.0.4",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.0",
+    "chai": "^4.3.10",
+    "mocha": "^11.0.1",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.5.0"
+  }
+}
