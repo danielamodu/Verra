@@ -184,6 +184,32 @@ deterministic verification → attestation → Solana → USDC settlement.
   sha256 `750f49c0…`. Sideload onto Seeker to run the demo in
   `docs/verra-demo.md`.
 
+## Phase 4 — Verra backend (jobs → settlement, PostgreSQL)
+
+Real backend (`backend/`, Express + Prisma + zod): job lifecycle with a
+transition guard, submission intake (idempotent by submissionId, never
+accepts client verdicts), engine-run verification with persisted attempts,
+digest-pinned attestations, idempotent reconcile-then-act settlement
+(`verify_job` → `release_payment` → balance-delta proof), and an
+append-only activity timeline the mobile app reads.
+
+- API: `POST /api/jobs`, `GET /api/jobs/:id`, `POST /api/jobs/:id/accept`,
+  `POST /api/submissions`, `GET /api/submissions/:id`,
+  `POST /api/verification/:submissionId`,
+  `GET /api/verification/:submissionId`, `POST /api/settle`,
+  `GET /api/settlements/:jobId`, `GET /api/jobs/:id/activity`,
+  plus `/health` and `/api/config`. Full reference: `docs/api.md`.
+- Security: verifier key lives only in `VERIFIER_KEYPAIR_PATH` (backend
+  memory); API responses are secret-scanned in tests; receipts exist only
+  for CONFIRMED settlements.
+- Vertical slice proven on a real chain (localnet + deployed program
+  `EmAP…`; devnet faucet was dry): incomplete work → REJECTED with escrow
+  locked; valid work → verify tx `4qJtFzaJ…` + release tx `4HWPaMMi…`,
+  worker +150,000,000, escrow 0. Artifact:
+  `backend/tests/artifacts/vertical-slice.json`.
+- Docs: `docs/backend.md`, `docs/data-model.md`, `docs/attestation.md`,
+  `docs/settlement.md`, `docs/api.md`.
+
 ## Security properties (enforced on-chain)
 
 - State transitions checked against stored `job.state`; client state ignored.

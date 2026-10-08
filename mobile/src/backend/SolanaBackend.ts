@@ -101,6 +101,26 @@ export function explorerUrl(signature: string): string {
   return `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
 }
 
+/**
+ * POST to the Verra backend API. Throws NotWiredError when no API is
+ * configured so missing wiring is always explicit, never silent.
+ */
+async function apiPost(path: string, body: unknown): Promise<any> {
+  if (!VERRA_API_URL) {
+    throw new NotWiredError(`SolanaBackend API call ${path}`);
+  }
+  const res = await fetch(`${VERRA_API_URL}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Backend ${path} failed (${res.status}): ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
 function apiError(what: string): never {
   throw new NotWiredError(
     `${what} needs the Verra backend API (set EXPO_PUBLIC_VERRA_API_URL; ` +
@@ -262,7 +282,7 @@ export class SolanaBackend implements ProofpayBackend {
     const sigFund = await sendViaMwa(this.connection, fundTx, address, authToken);
 
     const at = new Date().toISOString();
-    return this.track({
+    const tracked = this.track({
       id: jobId.toString(),
       title: input.title,
       description: input.description,
@@ -276,6 +296,23 @@ export class SolanaBackend implements ProofpayBackend {
         { key: "funded", label: `Funds locked (${sigFund.slice(0, 8)}…)`, at },
       ],
     });
+    // Backend records/reconciles FUNDED (best effort when no API configured).
+    if (VERRA_API_URL) {
+      await apiPost("/api/jobs", {
+        jobId: tracked.id,
+        jobPda: jobPda.toBase58(),
+        business,
+        worker: input.worker,
+        verifier: input.verifier,
+        title: input.title,
+        description: input.description,
+        paymentBaseUnits: input.paymentBaseUnits,
+        usdcMint: DEVNET_USDC_MINT.toBase58(),
+        requirements: input.requirements,
+        chain: { createTx: sigCreate, fundTx: sigFund },
+      });
+    }
+    return tracked;
   }
 
   /** Worker signs accept_job. */
@@ -292,6 +329,9 @@ export class SolanaBackend implements ProofpayBackend {
     const sig = await sendViaMwa(this.connection, tx, address, authToken);
     job.chainState = "IN_PROGRESS";
     job.activity.push({ key: "accepted", label: `Worker accepted (${sig.slice(0, 8)}…)`, at: new Date().toISOString() });
+    if (VERRA_API_URL) {
+      await apiPost(`/api/jobs/${job.id}/accept`, { worker, acceptTx: sig });
+    }
     return job;
   }
 
@@ -317,13 +357,23 @@ export class SolanaBackend implements ProofpayBackend {
       draft.deviceId
     );
     if (draft.workerSignature) (submission as any).worker_signature = draft.workerSignature;
-    const res = await fetch(`${VERRA_API_URL}/api/submissions`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(submission),
-    });
-    if (!res.ok) throw new Error(`Submission upload failed (${res.status}).`);
-    const result = (await res.json()) as VerificationResult;
+    // API shape is camelCase (see backend/src/api/schemas.ts + contract test).
+    const result = (await apiPost("/api/submissions", {
+      jobId: submission.job_id,
+      worker: submission.worker,
+      submissionId: submission.submission_id,
+      checklistResults: submission.checklist_results,
+      evidence: submission.evidence.map((e) => ({
+        requirementId: e.requirement_id,
+        type: e.type,
+        storageRef: e.storage_ref,
+        contentHash: e.content_hash,
+        capturedAt: e.captured_at,
+        metadata: e.metadata,
+      })),
+      workerSignature: (submission as any).worker_signature,
+      submittedAt: submission.submitted_at,
+    })) as VerificationResult;
     const program = this.programFor(address);
     const [jobPda] = deriveJobPda(PROGRAM_ID, new PublicKey(job.business), new BN(job.id));
     const tx: Transaction = await program.methods
