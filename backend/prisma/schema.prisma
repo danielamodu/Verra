@@ -1,0 +1,189 @@
+// Verra data model — PostgreSQL via Prisma.
+// Amounts are base-unit integers (BigInt): exact USDC accounting, no floats.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobState {
+  CREATED
+  FUNDED
+  IN_PROGRESS
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  SETTLED
+}
+
+enum SubmissionStatus {
+  RECEIVED
+  VERIFIED
+  REJECTED
+}
+
+enum AttemptStatus {
+  VERIFIED
+  REJECTED
+}
+
+enum SettlementStatus {
+  PENDING
+  VERIFYING
+  RELEASING
+  CONFIRMED
+  FAILED
+}
+
+enum ActivityType {
+  JOB_CREATED
+  FUNDED
+  ACCEPTED
+  SUBMITTED
+  VERIFICATION_STARTED
+  VERIFIED
+  REJECTED
+  SETTLEMENT_STARTED
+  PAYMENT_RELEASED
+  SETTLEMENT_FAILED
+}
+
+model Job {
+  id           String   @id @default(cuid())
+  jobId        String   @unique // on-chain u64 decimal (operator-allocated)
+  jobPda       String   @unique
+  business     String
+  worker       String
+  verifier     String
+  title        String
+  description  String   @default("")
+  paymentAmount BigInt
+  usdcMint     String
+  state        JobState @default(CREATED)
+  requirements Json
+  createTx     String?
+  fundTx       String?
+  acceptTx     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submissions  Submission[]
+  attempts     VerificationAttempt[]
+  attestations VerificationAttestation[]
+  settlements  Settlement[]
+  events       ActivityEvent[]
+
+  @@index([state])
+  @@index([worker])
+}
+
+model Submission {
+  // Client submissionId IS the primary key: natural idempotency.
+  id               String           @id
+  jobId            String
+  job              Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker           String
+  submittedAt      DateTime
+  status           SubmissionStatus @default(RECEIVED)
+  checklistResults Json
+  commitment       String
+  workerSignature  String?
+  createdAt        DateTime         @default(now())
+
+  evidence Evidence[]
+  attempts VerificationAttempt[]
+
+  @@index([jobId])
+}
+
+model Evidence {
+  id            String     @id @default(cuid())
+  submissionId  String
+  submission    Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  position      Int // stable order for deterministic digests
+  requirementId String
+  type          String
+  storageRef    String
+  contentHash   String
+  capturedAt    DateTime
+  metadata      Json?
+
+  @@index([submissionId])
+}
+
+model VerificationAttempt {
+  id           String        @id @default(cuid())
+  jobId        String
+  job          Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  submissionId String
+  submission   Submission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  status       AttemptStatus
+  checks       Json
+  reason       String
+  createdAt    DateTime      @default(now())
+
+  @@index([submissionId])
+  @@index([jobId])
+}
+
+model VerificationAttestation {
+  // Only VERIFIED results produce a row — a REJECTED result can never
+  // authorize settlement because no ticket is ever issued for it.
+  id                 String   @id @default(cuid())
+  jobId              String
+  job                Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  submissionId       String   @unique
+  worker             String
+  verifier           String
+  requirements       Json
+  evidenceCommitments Json
+  result             String   // always "VERIFIED"
+  canonicalDigest    String   @unique
+  workerSignature    String?
+  verifySignature    String?
+  deviceId           String?
+  checks             Json // engine checks snapshot (digest re-validation)
+  reason             String // engine reason (digest re-validation)
+  verifiedAt         DateTime // engine evaluation time (digest re-validation)
+  createdAt          DateTime @default(now())
+
+  settlements Settlement[]
+
+  @@index([jobId])
+}
+
+model Settlement {
+  // One settlement per job: jobId UNIQUE makes double-pay impossible at
+  // the database level, independent of application logic.
+  id            String           @id @default(cuid())
+  jobId         String           @unique
+  job           Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  attestationId String           @unique
+  attestation   VerificationAttestation @relation(fields: [attestationId], references: [id])
+  status        SettlementStatus @default(PENDING)
+  verifyTx      String?
+  releaseTx     String?
+  amount        BigInt
+  recipient     String
+  error         String?
+  confirmedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model ActivityEvent {
+  // Append-only: the API exposes no update/delete for events.
+  id          String       @id @default(cuid())
+  jobId       String
+  job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  type        ActivityType
+  actor       String?
+  metadata    Json?
+  txSignature String?
+  timestamp   DateTime     @default(now())
+
+  @@index([jobId, timestamp])
+}
