@@ -1,0 +1,23 @@
+[package]
+name = "proofpay"
+version = "0.1.0"
+description = "ProofPay: verified field work → instant USDC settlement (V1 minimal protocol)"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "proofpay"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+# init-if-needed is required for the escrow ATA's `init_if_needed` constraint
+# (Anchor 0.31+ enforces the feature flag explicitly).
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = "0.31.1"

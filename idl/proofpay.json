@@ -1,0 +1,1208 @@
+{
+  "address": "EmAPVEMNMa5vmS2GaFSjfNjg1JeWyUhy4fCe3c6PyoMp",
+  "metadata": {
+    "name": "proofpay",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "ProofPay: verified field work → instant USDC settlement (V1 minimal protocol)"
+  },
+  "docs": [
+    "V1 — minimal ProofPay protocol.",
+    "",
+    "State machine:",
+    "CREATED -> FUNDED -> IN_PROGRESS -> SUBMITTED -> VERIFIED -> SETTLED",
+    "SUBMITTED -> REJECTED -> IN_PROGRESS (resubmission loop)",
+    "",
+    "Roles:",
+    "- business: creates + funds the job; pays USDC into escrow.",
+    "- worker:   accepts + submits; receives USDC on settlement.",
+    "- verifier: verifies / rejects; also acts as settlement authority for release.",
+    "",
+    "Escrow:",
+    "- Associated Token Account (SPL Token) owned by the Job PDA.",
+    "- Only `release_payment` can move funds out, via PDA-signed CPI,",
+    "only from VERIFIED -> SETTLED, exactly once."
+  ],
+  "instructions": [
+    {
+      "name": "accept_job",
+      "docs": [
+        "3. Worker accepts the job. FUNDED -> IN_PROGRESS."
+      ],
+      "discriminator": [
+        43,
+        201,
+        124,
+        1,
+        19,
+        189,
+        96,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "worker",
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_job",
+      "docs": [
+        "1. Business creates the job. Initializes the Job PDA in CREATED state."
+      ],
+      "discriminator": [
+        178,
+        130,
+        217,
+        110,
+        100,
+        27,
+        82,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "business",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "business"
+              },
+              {
+                "kind": "arg",
+                "path": "job_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint locked into the job at creation. All later token",
+            "accounts must use this mint."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "job_id",
+          "type": "u64"
+        },
+        {
+          "name": "worker",
+          "type": "pubkey"
+        },
+        {
+          "name": "verifier",
+          "type": "pubkey"
+        },
+        {
+          "name": "payment_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "fund_job",
+      "docs": [
+        "2. Business funds the job with USDC. CREATED -> FUNDED."
+      ],
+      "discriminator": [
+        244,
+        198,
+        4,
+        15,
+        41,
+        178,
+        169,
+        187
+      ],
+      "accounts": [
+        {
+          "name": "business",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "Mint must equal job.usdc_mint (checked in handler)."
+          ]
+        },
+        {
+          "name": "business_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "business"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "escrow_ata",
+          "docs": [
+            "Program-controlled escrow ATA, owned by the Job PDA.",
+            "Created on first fund; holds exactly `payment_amount` until release."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "job"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reject_job",
+      "docs": [
+        "6. Verifier rejects completion. SUBMITTED -> REJECTED."
+      ],
+      "discriminator": [
+        94,
+        15,
+        241,
+        118,
+        161,
+        177,
+        128,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "verifier",
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "release_payment",
+      "docs": [
+        "8. Settlement authority (verifier) releases escrow to worker.",
+        "VERIFIED -> SETTLED. Exactly once. Worker can never pull escrow directly."
+      ],
+      "discriminator": [
+        24,
+        34,
+        191,
+        86,
+        145,
+        160,
+        183,
+        233
+      ],
+      "accounts": [
+        {
+          "name": "settlement_authority",
+          "docs": [
+            "Settlement authority — must equal job.verifier (checked in handler)."
+          ],
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "job"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.usdc_mint",
+                "account": "Job"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "worker_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resubmit_job",
+      "docs": [
+        "7. Worker re-queues after rejection. REJECTED -> IN_PROGRESS."
+      ],
+      "discriminator": [
+        155,
+        200,
+        66,
+        210,
+        72,
+        170,
+        244,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "worker",
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "submit_job",
+      "docs": [
+        "4. Worker submits completion. IN_PROGRESS -> SUBMITTED."
+      ],
+      "discriminator": [
+        250,
+        129,
+        161,
+        132,
+        254,
+        161,
+        34,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "worker",
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "verify_job",
+      "docs": [
+        "5. Verifier approves completion. SUBMITTED -> VERIFIED."
+      ],
+      "discriminator": [
+        235,
+        103,
+        8,
+        177,
+        140,
+        20,
+        135,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "verifier",
+          "signer": true
+        },
+        {
+          "name": "job",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  106,
+                  111,
+                  98
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "job.business",
+                "account": "Job"
+              },
+              {
+                "kind": "account",
+                "path": "job.job_id",
+                "account": "Job"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Job",
+      "discriminator": [
+        75,
+        124,
+        80,
+        203,
+        161,
+        180,
+        202,
+        80
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "JobAccepted",
+      "discriminator": [
+        47,
+        54,
+        152,
+        59,
+        118,
+        195,
+        251,
+        114
+      ]
+    },
+    {
+      "name": "JobCreated",
+      "discriminator": [
+        48,
+        110,
+        162,
+        177,
+        67,
+        74,
+        159,
+        131
+      ]
+    },
+    {
+      "name": "JobFunded",
+      "discriminator": [
+        109,
+        177,
+        206,
+        113,
+        255,
+        142,
+        11,
+        19
+      ]
+    },
+    {
+      "name": "JobRejected",
+      "discriminator": [
+        23,
+        78,
+        227,
+        57,
+        28,
+        0,
+        197,
+        216
+      ]
+    },
+    {
+      "name": "JobResubmitted",
+      "discriminator": [
+        247,
+        99,
+        177,
+        189,
+        229,
+        177,
+        105,
+        153
+      ]
+    },
+    {
+      "name": "JobSubmitted",
+      "discriminator": [
+        129,
+        204,
+        35,
+        127,
+        38,
+        50,
+        131,
+        248
+      ]
+    },
+    {
+      "name": "JobVerified",
+      "discriminator": [
+        188,
+        227,
+        74,
+        239,
+        4,
+        70,
+        144,
+        129
+      ]
+    },
+    {
+      "name": "PaymentReleased",
+      "discriminator": [
+        160,
+        132,
+        155,
+        232,
+        46,
+        254,
+        69,
+        219
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidStateTransition",
+      "msg": "Invalid state transition for the current job state."
+    },
+    {
+      "code": 6001,
+      "name": "UnauthorizedBusiness",
+      "msg": "Only the business recorded at job creation may perform this action."
+    },
+    {
+      "code": 6002,
+      "name": "UnauthorizedWorker",
+      "msg": "Only the assigned worker may perform this action."
+    },
+    {
+      "code": 6003,
+      "name": "UnauthorizedVerifier",
+      "msg": "Only the assigned verifier may perform this action."
+    },
+    {
+      "code": 6004,
+      "name": "UnauthorizedSettlement",
+      "msg": "Only the authorized settlement authority (verifier) may release payment."
+    },
+    {
+      "code": 6005,
+      "name": "InvalidMint",
+      "msg": "Token mint does not match the USDC mint locked at job creation."
+    },
+    {
+      "code": 6006,
+      "name": "InvalidPaymentAmount",
+      "msg": "Payment amount must be greater than zero."
+    },
+    {
+      "code": 6007,
+      "name": "InsufficientFunds",
+      "msg": "Business token account holds insufficient funds for the payment amount."
+    },
+    {
+      "code": 6008,
+      "name": "AmountMismatch",
+      "msg": "Escrow balance does not match the locked payment amount."
+    },
+    {
+      "code": 6009,
+      "name": "PrematureRelease",
+      "msg": "Payment can only be released from VERIFIED state, exactly once."
+    },
+    {
+      "code": 6010,
+      "name": "InvalidWorkerDestination",
+      "msg": "Worker destination token account is not owned by the assigned worker."
+    },
+    {
+      "code": 6011,
+      "name": "InvalidWorker",
+      "msg": "Invalid worker pubkey."
+    },
+    {
+      "code": 6012,
+      "name": "InvalidVerifier",
+      "msg": "Invalid verifier pubkey."
+    },
+    {
+      "code": 6013,
+      "name": "WorkerCannotBeBusiness",
+      "msg": "Worker cannot be the business itself."
+    }
+  ],
+  "types": [
+    {
+      "name": "Job",
+      "docs": [
+        "V1 job account. Fixed layout — do not reorder fields without a migration."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "business",
+            "type": "pubkey"
+          },
+          {
+            "name": "worker",
+            "type": "pubkey"
+          },
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "payment_amount",
+            "type": "u64"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "JobState"
+              }
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobAccepted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "worker",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "business",
+            "type": "pubkey"
+          },
+          {
+            "name": "worker",
+            "type": "pubkey"
+          },
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "payment_amount",
+            "type": "u64"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobRejected",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobResubmitted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "worker",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Created"
+          },
+          {
+            "name": "Funded"
+          },
+          {
+            "name": "InProgress"
+          },
+          {
+            "name": "Submitted"
+          },
+          {
+            "name": "Verified"
+          },
+          {
+            "name": "Rejected"
+          },
+          {
+            "name": "Settled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobSubmitted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "worker",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "JobVerified",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PaymentReleased",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "job",
+            "type": "pubkey"
+          },
+          {
+            "name": "job_id",
+            "type": "u64"
+          },
+          {
+            "name": "worker",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+[workspace]
+members = ["programs/*"]
+resolver = "2"
+
+# Required by Anchor 0.31+ builds (on-chain arithmetic safety).
+[profile.release]
+overflow-checks = true
