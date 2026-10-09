@@ -65,3 +65,12 @@ npx expo prebuild --platform android --no-install
 `@solana/web3.js` pulls ESM-only transitive deps (`jayson`, `uuid`) that
 jest cannot parse. Chain-touching tests run under ts-mocha (plain Node)
 instead — see `"test"` script. Metro/RN bundles are unaffected.
+
+## Note: `expo export` vs `assembleDebug`
+
+`npx expo export` fails resolving the
+`@solana-mobile/mobile-wallet-adapter-protocol/encoding` subpath (its
+`exports` map has no fallback Metro 0.80 accepts in the export path).
+The supported APK path (`expo prebuild` + `assembleDebug`) bundles the
+same graph successfully — that is what ships. No code change needed;
+revisit only if the export path becomes required.
