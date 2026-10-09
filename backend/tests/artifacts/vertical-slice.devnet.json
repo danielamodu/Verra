@@ -1,0 +1,21 @@
+{
+  "cluster": "https://api.devnet.solana.com",
+  "programId": "EmAPVEMNMa5vmS2GaFSjfNjg1JeWyUhy4fCe3c6PyoMp",
+  "jobPda": "7Eq79f7gwzHPqzdUYQpj41FCvDvjoLxVX9qhV1dhPNmQ",
+  "escrowAta": "A5uDu68soXDU7SFUJXaSLndaeB86GFUhUoiTR1qxrW2U",
+  "business": "3jNEVjYZtMKHShfPLmS7tH8oKNngd42bU3sX7AJ1yxQD",
+  "worker": "5ZVHBBx5rARCQJ1ic7uzzxm2qn7CDMuaBNVU5W1BA7gN",
+  "verifier": "5A4Wk1N7BCujQMShUZLfXAekMaQyWN7ooQP1iEEvVXsL",
+  "usdcMint": "ADDNAfTPmNs6u6er8BDnNBfHN7x9vZHCFckCf2oBy44X",
+  "submissionId": "slice-ok-574873002810",
+  "attestationId": "cmuzkycc00013s6x6o3gghylk",
+  "attestationDigest": "b78e4d23fedf084dc4d54d5212731f2fc0858bac74ce4a4a054c8b3744d5e71f",
+  "sigCreate": "5ActcJzFZ8pQhwyaUo4qprk3uZ9bDNyzQ9qD64VrJ69MbsJPL2o5jSLd758xGwaptQN32ys6bADe22p95ZTAj2xN",
+  "sigFund": "55mc1T9gNt6SWBW482N6bJj22G5ZaPViype23z5MQVGnZr9AskxJSNpzBz8m1MRBM5oeKfa4K7Gny3djKz4CAWD3",
+  "sigAccept": "5qJeEpdreCeJZmNKKj7fMuWJH323nUJUt2PHX2qDqx7osJTS3Sehgit6Gr1eNKhRwwnCKoUMhNDXVfngNvG2jFi4",
+  "sigSubmit": "xgbMsBzYefyWv5BaNbuc1F4eQvMtq3hMkgxVvhUQZXQLJGjr2pDTuC2MnKirbVhFpADg4vqDEwV6CkbtAz76Xw8",
+  "verifyTx": "4w19sUjjdKm6e5cKXo58AbmcqS9bcCeaL9kgpoqg8mChjoivLv8Qu3TAUVwKyaMH5uXvFnjaBVarivCa8KBZtowR",
+  "releaseTx": "JCobNVsPPuPYpqPdKf8RjfLK7MBiu22EMfkLJmos4R2k22aFVPsFK485mdNuckdMcJmEBhz5KXDF4nByz1qSjuj",
+  "workerBalanceBefore": 0,
+  "workerBalanceAfter": 150000000
+}

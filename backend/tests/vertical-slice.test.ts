@@ -54,14 +54,21 @@ async function airdrop(connection: any, to: PublicKey, sol: number) {
   let businessAta: PublicKey;
   let nonce = 0;
 
+  function loadKeypair(keyfile: string | undefined): Keypair | null {
+    if (!keyfile) return null;
+    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(keyfile, "utf8"))));
+  }
+
   before(async function () {
     this.timeout(300000);
     await wipe(db);
     resetSolana();
 
-    business = Keypair.generate();
-    worker = Keypair.generate();
-    const verifier = Keypair.generate();
+    // Fixed operator wallets (devnet) via env keypair files, else ephemeral.
+    business = loadKeypair(process.env.SLICE_BUSINESS_KEYPAIR) ?? Keypair.generate();
+    worker = loadKeypair(process.env.SLICE_WORKER_KEYPAIR) ?? Keypair.generate();
+    const fixedVerifier = loadKeypair(process.env.SLICE_VERIFIER_KEYPAIR);
+    const verifier = fixedVerifier ?? Keypair.generate();
     const keyfile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "verra-op-")), "verifier.json");
     fs.writeFileSync(keyfile, JSON.stringify(Array.from(verifier.secretKey)));
 
@@ -69,10 +76,18 @@ async function airdrop(connection: any, to: PublicKey, sol: number) {
     (solana as any).sliceVerifier = verifier;
     app = testApp(solana);
 
-    await airdrop(solana.connection, business.publicKey, 3);
-    await airdrop(solana.connection, worker.publicKey, 1);
-    // The backend verifier pays for verify_job + release_payment on-chain.
-    await airdrop(solana.connection, verifier.publicKey, 2);
+    if (process.env.SLICE_BUSINESS_KEYPAIR && process.env.SLICE_WORKER_KEYPAIR) {
+      // Pre-funded fixed wallets — no faucet needed.
+      const [bb, wb, vb] = await Promise.all(
+        [business, worker, verifier].map((k) => solana.connection.getBalance(k.publicKey))
+      );
+      console.log(`      operator balances: business=${bb} worker=${wb} verifier=${vb} lamports`);
+    } else {
+      await airdrop(solana.connection, business.publicKey, 3);
+      await airdrop(solana.connection, worker.publicKey, 1);
+      // The backend verifier pays for verify_job + release_payment on-chain.
+      await airdrop(solana.connection, verifier.publicKey, 2);
+    }
 
     usdcMint = await createMint(solana.connection, business, business.publicKey, null, 6);
     businessAta = await createAssociatedTokenAccount(
@@ -100,7 +115,10 @@ async function airdrop(connection: any, to: PublicKey, sol: number) {
   async function beginOnChainJob(tag: string, amount: number) {
     void tag;
     nonce += 1;
-    const jobId = new BN(Date.now() % 100000000).add(new BN(nonce));
+    // Unique across reruns even with a fixed business wallet.
+    const jobId = new BN(
+      `${Date.now() % 1000000}${String(nonce).padStart(3, "0")}${Math.floor(Math.random() * 1000)}`
+    );
     const program: any = solana.program;
     const verifier: Keypair = (solana as any).sliceVerifier;
     const [jobPda] = PublicKey.findProgramAddressSync(
@@ -315,6 +333,7 @@ async function airdrop(connection: any, to: PublicKey, sol: number) {
     };
     const dir = path.join(__dirname, "artifacts");
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "vertical-slice.json"), JSON.stringify(artifact, null, 2));
+    const artifactName = process.env.SLICE_ARTIFACT ?? "vertical-slice.json";
+    fs.writeFileSync(path.join(dir, artifactName), JSON.stringify(artifact, null, 2));
   });
 });

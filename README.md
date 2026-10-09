@@ -202,11 +202,13 @@ append-only activity timeline the mobile app reads.
 - Security: verifier key lives only in `VERIFIER_KEYPAIR_PATH` (backend
   memory); API responses are secret-scanned in tests; receipts exist only
   for CONFIRMED settlements.
-- Vertical slice proven on a real chain (localnet + deployed program
-  `EmAP…`; devnet faucet was dry): incomplete work → REJECTED with escrow
-  locked; valid work → verify tx `4qJtFzaJ…` + release tx `4HWPaMMi…`,
-  worker +150,000,000, escrow 0. Artifact:
-  `backend/tests/artifacts/vertical-slice.json`.
+- Vertical slice proven on **devnet** against the deployed program
+  `EmAP…` with fixed funded operator wallets: incomplete work → REJECTED
+  with escrow locked; valid work → verify tx `4w19sUjjdKm6e5cKXo58AbmcqS9bcCeaL9kgpoqg8mChjoivLv8Qu3TAUVwKyaMH5uXvFnjaBVarivCa8KBZtowR`
+  + release tx `JCobNVsPPuPYpqPdKf8RjfLK7MBiu22EMfkLJmos4R2k22aFVPsFK485mdNuckdMcJmEBhz5KXDF4nByz1qSjuj`,
+  worker 0 → 150,000,000, escrow → 0. Artifact:
+  `backend/tests/artifacts/vertical-slice.devnet.json` (localnet artifact
+  alongside it).
 - Docs: `docs/backend.md`, `docs/data-model.md`, `docs/attestation.md`,
   `docs/settlement.md`, `docs/api.md`.
 
