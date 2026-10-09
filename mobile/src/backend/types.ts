@@ -114,6 +114,8 @@ export interface ProofpayBackend {
   releasePayment(id: string): Promise<SettlementReceipt>;
   /** Backend-operated settlement (verifier key lives server-side). Optional. */
   requestSettlement?(id: string): Promise<SettlementReceipt>;
+  /** Persisted activity timeline (server-side when available). Optional. */
+  getActivity?(id: string): Promise<{ key: string; label: string; at: string }[]>;
 }
 
 export function submissionFromDraft(

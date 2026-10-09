@@ -7,6 +7,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { BN, BorshAccountsCoder } from "@coral-xyz/anchor";
 import { assert } from "chai";
+import "./setup-env";
 import idl from "../../idl/proofpay.json";
 import {
   SolanaBackend,

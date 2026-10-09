@@ -47,6 +47,11 @@ export const DEVNET_USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEER
 export const VERRA_API_URL: string =
   (typeof process !== "undefined" && (process as any).env?.EXPO_PUBLIC_VERRA_API_URL) || "";
 
+/** API base URL for screens that need direct GETs (config, activity). */
+export function getApiBaseUrl(): string {
+  return VERRA_API_URL;
+}
+
 const coder = new BorshAccountsCoder(idl as any);
 
 export interface ChainJobState {
@@ -175,6 +180,16 @@ export class SolanaBackend implements ProofpayBackend {
   private counter = 0;
   /** Jobs created in this session (no indexer yet — see docs/mobile.md). */
   private sessionJobs = new Map<string, ProofpayJob>();
+  /**
+   * Transaction sender. Defaults to the wallet app (user approves each
+   * transaction); assignable in tests to observe ordering without a wallet.
+   */
+  sender: (
+    connection: Connection,
+    transaction: Transaction,
+    signerAddress: string,
+    authToken: string
+  ) => Promise<string> = sendViaMwa;
 
   constructor(rpcUrl: string = DEVNET_RPC, session: MwaSession | null = null) {
     this.connection = new Connection(rpcUrl, "confirmed");
@@ -211,6 +226,45 @@ export class SolanaBackend implements ProofpayBackend {
     const info = await this.connection.getAccountInfo(jobPda);
     if (!info) return { found: false };
     return decodeJobState(info.data as Buffer);
+  }
+
+  /**
+   * Persisted activity timeline from the backend (never fabricated
+   * client-side). Falls back to undefined when no API is configured.
+   */
+  async getActivity(id: string): Promise<{ key: string; label: string; at: string }[]> {
+    if (!VERRA_API_URL) return [];
+    try {
+      const res = await fetch(`${VERRA_API_URL}/api/jobs/${id}/activity`);
+      if (!res.ok) return [];
+      const events = (await res.json()) as {
+        type: string;
+        timestamp: string;
+        actor?: string | null;
+        txSignature?: string | null;
+      }[];
+      const LABELS: Record<string, string> = {
+        JOB_CREATED: "Job created",
+        FUNDED: "Funds locked",
+        ACCEPTED: "Worker accepted",
+        SUBMITTED: "Evidence submitted",
+        VERIFICATION_STARTED: "Verification started",
+        VERIFIED: "Verification passed",
+        REJECTED: "Verification failed",
+        SETTLEMENT_STARTED: "Settlement started",
+        PAYMENT_RELEASED: "Payment released",
+        SETTLEMENT_FAILED: "Settlement failed",
+      };
+      return events.map((e, i) => ({
+        key: `${e.type}-${i}`,
+        label: e.txSignature
+          ? `${LABELS[e.type] ?? e.type} (${e.txSignature.slice(0, 8)}…)`
+          : LABELS[e.type] ?? e.type,
+        at: e.timestamp,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   async listJobs(): Promise<ProofpayJob[]> {
@@ -262,7 +316,7 @@ export class SolanaBackend implements ProofpayBackend {
         systemProgram: new PublicKey("11111111111111111111111111111111"),
       })
       .transaction();
-    const sigCreate = await sendViaMwa(this.connection, createTx, address, authToken);
+    const sigCreate = await this.sender(this.connection, createTx, address, authToken);
 
     const businessAta = await getAssociatedTokenAddress(DEVNET_USDC_MINT, businessPk);
     const escrowAta = await getAssociatedTokenAddress(DEVNET_USDC_MINT, jobPda, true);
@@ -279,7 +333,7 @@ export class SolanaBackend implements ProofpayBackend {
         systemProgram: new PublicKey("11111111111111111111111111111111"),
       })
       .transaction();
-    const sigFund = await sendViaMwa(this.connection, fundTx, address, authToken);
+    const sigFund = await this.sender(this.connection, fundTx, address, authToken);
 
     const at = new Date().toISOString();
     const tracked = this.track({
@@ -326,7 +380,7 @@ export class SolanaBackend implements ProofpayBackend {
       .acceptJob()
       .accounts({ worker: new PublicKey(worker), job: jobPda })
       .transaction();
-    const sig = await sendViaMwa(this.connection, tx, address, authToken);
+    const sig = await this.sender(this.connection, tx, address, authToken);
     job.chainState = "IN_PROGRESS";
     job.activity.push({ key: "accepted", label: `Worker accepted (${sig.slice(0, 8)}…)`, at: new Date().toISOString() });
     if (VERRA_API_URL) {
@@ -336,8 +390,10 @@ export class SolanaBackend implements ProofpayBackend {
   }
 
   /**
-   * Worker submits: evidence goes to the backend API (stored + verified),
-   * then the worker signs the on-chain submit_job transaction.
+   * Worker submits: the worker first signs the on-chain submit_job
+   * transaction (so a wallet rejection leaves no orphan backend state),
+   * then evidence goes to the backend API, then the REAL verification
+   * endpoint runs the engine and its result drives the UI.
    */
   async submitCompletion(
     id: string,
@@ -357,8 +413,15 @@ export class SolanaBackend implements ProofpayBackend {
       draft.deviceId
     );
     if (draft.workerSignature) (submission as any).worker_signature = draft.workerSignature;
+    const program = this.programFor(address);
+    const [jobPda] = deriveJobPda(PROGRAM_ID, new PublicKey(job.business), new BN(job.id));
+    const tx: Transaction = await program.methods
+      .submitJob()
+      .accounts({ worker: new PublicKey(job.worker), job: jobPda })
+      .transaction();
+    const sig = await this.sender(this.connection, tx, address, authToken);
     // API shape is camelCase (see backend/src/api/schemas.ts + contract test).
-    const result = (await apiPost("/api/submissions", {
+    await apiPost("/api/submissions", {
       jobId: submission.job_id,
       worker: submission.worker,
       submissionId: submission.submission_id,
@@ -373,14 +436,17 @@ export class SolanaBackend implements ProofpayBackend {
       })),
       workerSignature: (submission as any).worker_signature,
       submittedAt: submission.submitted_at,
-    })) as VerificationResult;
-    const program = this.programFor(address);
-    const [jobPda] = deriveJobPda(PROGRAM_ID, new PublicKey(job.business), new BN(job.id));
-    const tx: Transaction = await program.methods
-      .submitJob()
-      .accounts({ worker: new PublicKey(job.worker), job: jobPda })
-      .transaction();
-    const sig = await sendViaMwa(this.connection, tx, address, authToken);
+    });
+    // Run the actual verification engine server-side; its verdict — not the
+    // submission echo — is what the UI renders and settles on.
+    const verification = (await apiPost(
+      `/api/verification/${submission.submission_id}`,
+      {}
+    )) as { result: VerificationResult };
+    if (!verification?.result || typeof verification.result.status !== "string") {
+      throw new Error("Backend did not return a verification result.");
+    }
+    const result = verification.result;
     job.submissionId = submission.submission_id;
     job.verification = result;
     job.chainState = "SUBMITTED";

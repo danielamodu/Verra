@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -6,6 +6,7 @@ import { Screen } from "../components/Screen";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { colors, spacing } from "../theme";
 import { parseUSDC } from "../lib/format";
+import { getApiBaseUrl } from "../backend/SolanaBackend";
 import { storeInspectionRequirements } from "../../../verification/example-job";
 import { useProofpay } from "../state/ProofpayContext";
 import { useWallet } from "../wallet/WalletContext";
@@ -13,7 +14,7 @@ import type { RootStackParamList } from "../navigation/types";
 
 export function CreateJobScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { createJob } = useProofpay();
+  const { createJob, backendKind } = useProofpay();
   const { address } = useWallet();
   const [title, setTitle] = useState("Inspect 10 stores");
   const [description, setDescription] = useState("Visit all 10 stores and submit one photo per store.");
@@ -25,6 +26,22 @@ export function CreateJobScreen() {
   const [minPhotos, setMinPhotos] = useState(10);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // In devnet mode the backend publishes its verifier address — prefill it
+  // (editable override stays possible). Demo mode needs no verifier.
+  useEffect(() => {
+    if (backendKind !== "devnet" || verifier) return;
+    const base = getApiBaseUrl();
+    if (!base) return;
+    fetch(`${base}/api/config`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg) => {
+        if (cfg && typeof cfg.verifier === "string" && cfg.verifier) {
+          setVerifier(cfg.verifier);
+        }
+      })
+      .catch(() => undefined);
+  }, [backendKind]);
 
   const publish = async () => {
     setError(null);

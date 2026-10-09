@@ -22,7 +22,8 @@ export function VerificationScreen() {
 
   useEffect(() => {
     if (!job) return;
-    getSubmission(job.id)
+    // Submissions are keyed by submissionId server-side (see /api/submissions/:id).
+    getSubmission(job.submissionId ?? job.id)
       .then((s) => setFingerprints(s?.evidence.map((e) => e.content_hash) ?? []))
       .catch(() => undefined);
   }, [job?.id]);

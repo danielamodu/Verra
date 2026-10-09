@@ -32,7 +32,8 @@ export function ReceiptScreen() {
 
   useEffect(() => {
     if (!job?.verification) return;
-    getSubmission(job.id)
+    // Submissions are keyed by submissionId server-side (see /api/submissions/:id).
+    getSubmission(job.submissionId ?? job.id)
       .then((submission) => {
         if (!submission) return;
         let att = buildAttestation({

@@ -11,7 +11,7 @@
     "apk": "expo prebuild --platform android --no-install && ./android/gradlew -p android assembleDebug",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest && npm run test:node",
-    "test:node": "ts-mocha -p ./tsconfig.json -t 10000 tests/solana-backend.test.ts",
+    "test:node": "ts-mocha -p ./tsconfig.json -t 10000 tests/solana-backend.test.ts tests/submit-ordering.test.ts",
     "secrets-check": "node scripts/check-no-secrets.js"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "buffer": "^6.0.3",
     "expo": "~52.0.0",
     "expo-application": "~6.0.1",
+    "expo-asset": "~11.0.0",
     "expo-crypto": "~14.0.1",
     "expo-image-picker": "~16.0.3",
     "expo-status-bar": "~2.0.0",
@@ -54,7 +55,8 @@
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "tests/solana-backend.test.ts"
+      "tests/solana-backend.test.ts",
+      "tests/submit-ordering.test.ts"
     ]
   }
 }

@@ -157,6 +157,11 @@ export class LocalDemoBackend implements ProofpayBackend {
     return (await this.getJob(id)).verification;
   }
 
+  async getActivity(id: string): Promise<{ key: string; label: string; at: string }[]> {
+    const job = await this.getJob(id);
+    return job.activity.map((a) => ({ key: a.key, label: a.label, at: a.at }));
+  }
+
   async releasePayment(id: string): Promise<SettlementReceipt> {
     const job = await this.getJob(id);
     if (job.chainState !== "VERIFIED") {
