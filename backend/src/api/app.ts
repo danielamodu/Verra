@@ -24,10 +24,13 @@ export function createApp(deps: AppDeps) {
   });
   app.get("/api/config", (_req, res) => {
     // Public, non-sensitive cluster configuration for mobile clients.
+    // The verifier ADDRESS is public (it appears in every attestation);
+    // the key itself never leaves the backend process.
     res.json({
       programId: deps.config.programId,
       rpcUrl: deps.config.rpcUrl,
       usdcMint: deps.config.usdcMint,
+      verifier: deps.solana?.verifierKeypair.publicKey.toBase58() ?? null,
     });
   });
 

@@ -215,4 +215,14 @@ describe("settlement domain (stub executor)", () => {
     const res = await request(stubApp).post("/api/settle").send({ jobId: "9307" });
     assert.equal(res.status, 422);
   });
+
+  it("publishes the verifier address (and nothing secret) via /api/config", async () => {
+    const keypair = Keypair.generate();
+    const stubApp = testApp(stubSolana({ verifier: keypair.publicKey.toBase58(), keypair, calls: { verify: 0, release: 0 } }));
+    const res = await request(stubApp).get("/api/config");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.verifier, keypair.publicKey.toBase58());
+    assert.isString(res.body.programId);
+    assertNoSecrets(res.body);
+  });
 });
