@@ -4,13 +4,11 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import { Screen } from "../components/Screen";
-import { StatusBadge } from "../components/StatusBadge";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { colors, spacing } from "../theme";
+import { TopBar, Steps, Chip, Divider, SectionLabel } from "../components/ui";
+import { colors, font, t } from "../theme";
 import { useProofpay } from "../state/ProofpayContext";
 import type { RootStackParamList } from "../navigation/types";
-
-const STEPS = ["Submitted", "Checking requirements", "Decision"] as const;
 
 export function VerificationScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -22,120 +20,76 @@ export function VerificationScreen() {
 
   useEffect(() => {
     if (!job) return;
-    // Submissions are keyed by submissionId server-side (see /api/submissions/:id).
     getSubmission(job.submissionId ?? job.id)
       .then((s) => setFingerprints(s?.evidence.map((e) => e.content_hash) ?? []))
       .catch(() => undefined);
   }, [job?.id]);
 
   const result = job?.verification;
-  const totalSteps = result ? STEPS.length : 1;
-
   useEffect(() => {
     setVisibleChecks(0);
-    if (!result) return;
-    if (result.checks.length === 0) return;
+    if (!result || result.checks.length === 0) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    result.checks.forEach((_, i) => {
-      timers.push(setTimeout(() => setVisibleChecks(i + 1), 600 * (i + 1)));
-    });
+    result.checks.forEach((_, i) => timers.push(setTimeout(() => setVisibleChecks(i + 1), 600 * (i + 1))));
     return () => timers.forEach(clearTimeout);
   }, [result?.submission_id]);
 
   if (!job) {
-    return (
-      <Screen>
-        <Text style={styles.muted}>Job not found.</Text>
-      </Screen>
-    );
+    return (<Screen><TopBar title="Verification" onBack={() => nav.goBack()} /><Text style={t.sub}>Job not found.</Text></Screen>);
   }
 
   const done = result ? visibleChecks >= result.checks.length : false;
   const verdict = done ? result!.status : null;
+  const verified = verdict === "VERIFIED";
 
   return (
-    <Screen>
-      <Text style={styles.heading}>Verification</Text>
-      {STEPS.slice(0, totalSteps).map((step, i) => {
-        const active = i === 0 || (result != null && (i < 2 || done));
-        return (
-          <View key={step} style={styles.stepRow}>
-            <View style={[styles.rail, active && styles.railActive]} />
-            <Text style={[styles.step, active && styles.stepActive]}>{step}</Text>
-          </View>
-        );
-      })}
+    <Screen scroll>
+      <TopBar title="Verification" onBack={() => nav.goBack()} />
+      <Steps total={5} current={4} />
 
-      {result?.checks.slice(0, visibleChecks).map((c) => (
-        <View key={c.requirement} style={styles.checkRow}>
-          <Text style={[styles.mark, c.passed ? styles.pass : styles.fail]}>
-            {c.passed ? "✓" : "✗"}
-          </Text>
-          <View style={styles.checkBody}>
-            <Text style={styles.checkReq}>{c.requirement}</Text>
-            <Text style={styles.checkReason}>{c.reason}</Text>
+      {verdict ? (
+        <>
+          <Chip tone={verified ? "green" : "amber"} style={{ marginBottom: 12 }}>● {verdict}</Chip>
+          <Text style={[t.hero, { fontSize: 26 }]}>{verified ? "All checks\npassed." : "Needs another\npass."}</Text>
+          <Text style={[t.sub, { marginTop: 10 }]}>{result!.reason}</Text>
+          <View style={{ height: 18 }} />
+        </>
+      ) : (
+        <Text style={[t.sub, { marginBottom: 10 }]}>Checking requirements…</Text>
+      )}
+
+      {result?.checks.slice(0, visibleChecks).map((c, i) => (
+        <View key={c.requirement}>
+          {i > 0 ? <Divider /> : null}
+          <View style={s.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={t.item}>{c.requirement}</Text>
+              <Text style={[t.meta, { marginTop: 2 }]}>{c.reason}</Text>
+            </View>
+            <View style={[s.mark, { backgroundColor: c.passed ? colors.green : colors.red }]}>
+              <Text style={s.markText}>{c.passed ? "✓" : "✗"}</Text>
+            </View>
           </View>
         </View>
       ))}
 
       {done && fingerprints.length > 0 ? (
-        <View style={styles.fpBox}>
-          <Text style={styles.fpTitle}>✓ Evidence fingerprints</Text>
-          {fingerprints.map((h, i) => (
-            <Text key={i} style={styles.fpHash} numberOfLines={1}>
-              ⛓ {h.slice(0, 20)}…
-            </Text>
-          ))}
-        </View>
+        <>
+          <SectionLabel style={{ marginTop: 22 }}>Evidence fingerprints</SectionLabel>
+          {fingerprints.map((h, i) => (<Text key={i} style={s.fp} numberOfLines={1}>⛓ {h.slice(0, 24)}…</Text>))}
+        </>
       ) : null}
 
-      {verdict ? (
-        <View style={styles.verdict}>
-          <StatusBadge kind={verdict === "VERIFIED" ? "VERIFIED" : "REJECTED"} />
-          <Text style={styles.reason}>{result!.reason}</Text>
-        </View>
-      ) : null}
-
-      {verdict === "VERIFIED" ? (
-        <PrimaryButton
-          title="Continue to settlement"
-          onPress={() => nav.navigate("Settlement", { jobId: job.id })}
-        />
-      ) : null}
-      {verdict === "REJECTED" ? (
-        <PrimaryButton
-          title="Fix and resubmit"
-          onPress={() => nav.navigate("ExecuteJob", { jobId: job.id })}
-        />
-      ) : null}
+      <View style={{ height: 20 }} />
+      {verdict === "VERIFIED" ? <PrimaryButton title="Settle payment" onPress={() => nav.navigate("Settlement", { jobId: job.id })} /> : null}
+      {verdict === "REJECTED" ? <PrimaryButton title="Fix and resubmit" onPress={() => nav.navigate("ExecuteJob", { jobId: job.id })} /> : null}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  heading: { color: colors.text, fontSize: 22, fontWeight: "800" },
-  muted: { color: colors.muted, fontSize: 14 },
-  stepRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.md },
-  rail: { width: 4, height: 28, borderRadius: 2, backgroundColor: colors.cardBorder, marginRight: spacing.sm },
-  railActive: { backgroundColor: colors.blue },
-  step: { color: colors.muted, fontSize: 17, fontWeight: "700" },
-  stepActive: { color: colors.text },
-  checkRow: {
-    flexDirection: "row", backgroundColor: colors.card, borderColor: colors.cardBorder,
-    borderWidth: 1, borderRadius: 12, padding: spacing.sm, marginTop: spacing.sm,
-  },
-  mark: { fontSize: 20, fontWeight: "800", marginRight: spacing.sm },
-  pass: { color: colors.green },
-  fail: { color: colors.red },
-  checkBody: { flex: 1 },
-  fpBox: {
-    backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1,
-    borderRadius: 12, padding: spacing.sm, marginTop: spacing.sm,
-  },
-  fpTitle: { color: colors.green, fontSize: 14, fontWeight: "800" },
-  fpHash: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  checkReq: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  checkReason: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  verdict: { marginTop: spacing.lg, gap: spacing.sm },
-  reason: { color: colors.muted, fontSize: 14 },
+const s = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: 4 },
+  mark: { width: 24, height: 24, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  markText: { color: "#fff", fontFamily: font.bold, fontSize: 13 },
+  fp: { fontFamily: font.mono, fontSize: 12, color: colors.muted, marginTop: 4 },
 });

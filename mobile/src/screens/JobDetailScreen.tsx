@@ -6,7 +6,8 @@ import type { RouteProp } from "@react-navigation/native";
 import { Screen } from "../components/Screen";
 import { StatusBadge } from "../components/StatusBadge";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { colors, spacing } from "../theme";
+import { TopBar, Tile, SectionLabel, Divider } from "../components/ui";
+import { colors, spacing, t } from "../theme";
 import { formatUSDC, truncateAddress } from "../lib/format";
 import { chainStatus } from "../lib/status";
 import { useProofpay } from "../state/ProofpayContext";
@@ -23,102 +24,60 @@ export function JobDetailScreen() {
 
   const job = jobs.find((j) => j.id === route.params.jobId);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      refresh().catch(() => undefined);
-    }, [refresh])
-  );
+  useFocusEffect(React.useCallback(() => { refresh().catch(() => undefined); }, [refresh]));
 
   if (!job) {
-    return (
-      <Screen>
-        <Text style={styles.muted}>Job not found.</Text>
-      </Screen>
-    );
+    return (<Screen><TopBar title="Job" onBack={() => nav.goBack()} /><Text style={t.sub}>Job not found.</Text></Screen>);
   }
   const status = chainStatus(job.chainState);
   const photoReq = job.requirements.find((r) => r.type === "PHOTO_EVIDENCE");
-  const photoTotal =
-    photoReq && typeof (photoReq.configuration as { minPhotos?: unknown }).minPhotos === "number"
-      ? (photoReq.configuration as { minPhotos: number }).minPhotos
-      : 0;
-  const itemTotal = job.requirements
-    .filter((r) => r.type === "CHECKLIST")
-    .map((r) => (r.configuration as { items?: unknown[] }).items?.length ?? 0)
-    .reduce((a, b) => a + b, 0);
+  const photoTotal = photoReq && typeof (photoReq.configuration as { minPhotos?: unknown }).minPhotos === "number"
+    ? (photoReq.configuration as { minPhotos: number }).minPhotos : 0;
+  const itemTotal = job.requirements.filter((r) => r.type === "CHECKLIST")
+    .map((r) => (r.configuration as { items?: unknown[] }).items?.length ?? 0).reduce((a, b) => a + b, 0);
 
   const accept = async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      await acceptJob(job.id, address ?? job.worker);
-    } catch (e: any) {
-      setError(e?.message ?? "Could not accept the job.");
-    } finally {
-      setBusy(false);
-    }
+    setError(null); setBusy(true);
+    try { await acceptJob(job.id, address ?? job.worker); }
+    catch (e: any) { setError(e?.message ?? "Could not accept the job."); }
+    finally { setBusy(false); }
   };
 
   return (
-    <Screen>
-      <View style={styles.headRow}>
-        <Text style={styles.title}>{job.title}</Text>
-        <StatusBadge kind={status.kind} label={status.label} />
-      </View>
-      <Text style={styles.amount}>{formatUSDC(job.paymentBaseUnits)}</Text>
-      <Text style={styles.desc}>{job.description}</Text>
+    <Screen scroll>
+      <TopBar title="Job" onBack={() => nav.goBack()} right={<StatusBadge kind={status.kind} label={status.label} />} />
+      <Tile>
+        <Text style={t.label}>PAYMENT ON COMPLETION</Text>
+        <Text style={[t.big, { fontSize: 40, marginTop: 6 }]}>{formatUSDC(job.paymentBaseUnits)}</Text>
+        <Text style={[t.sub, { marginTop: 6 }]}>{job.title} · USDC</Text>
+      </Tile>
+      <Text style={[t.sub, { marginTop: 16 }]}>{job.description}</Text>
 
-      <Text style={styles.section}>Requirements</Text>
-      <Text style={styles.progress}>
-        0/{itemTotal} complete{"\n"}0/{photoTotal} photos
-      </Text>
-      {job.requirements.map((r) => (
-        <Text key={r.id} style={styles.req}>
-          • {r.label} {r.required ? "" : "(optional)"}
-        </Text>
+      <SectionLabel style={{ marginTop: 24 }}>Requirements · {itemTotal} checks · {photoTotal} photos</SectionLabel>
+      {job.requirements.map((r, i) => (
+        <View key={r.id}>
+          {i > 0 ? <Divider /> : null}
+          <Text style={t.item}>{r.label}{r.required ? "" : "  (optional)"}</Text>
+        </View>
       ))}
 
-      <Text style={styles.section}>Parties</Text>
-      <Text style={styles.muted}>Business: {truncateAddress(job.business, 6)}</Text>
-      <Text style={styles.muted}>Worker: {truncateAddress(job.worker, 6)}</Text>
+      <SectionLabel style={{ marginTop: 24 }}>Parties</SectionLabel>
+      <Text style={t.meta}>Business · {truncateAddress(job.business, 6)}</Text>
+      <Text style={[t.meta, { marginTop: 4 }]}>Worker · {truncateAddress(job.worker, 6)}</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={s.error}>{error}</Text> : null}
 
-      {job.chainState === "FUNDED" ? (
-        <PrimaryButton title="Start job" onPress={accept} loading={busy} />
+      <View style={{ height: spacing.lg }} />
+      {job.chainState === "FUNDED" ? <PrimaryButton title="Start job" onPress={accept} loading={busy} /> : null}
+      {job.chainState === "IN_PROGRESS" ? <PrimaryButton title="Execute job" onPress={() => nav.navigate("ExecuteJob", { jobId: job.id })} /> : null}
+      {["SUBMITTED", "VERIFIED", "REJECTED", "SETTLED"].includes(job.chainState) ? (
+        <PrimaryButton title="View verification" onPress={() => nav.navigate("Verification", { jobId: job.id })} />
       ) : null}
-      {job.chainState === "IN_PROGRESS" ? (
-        <PrimaryButton
-          title="Execute job"
-          onPress={() => nav.navigate("ExecuteJob", { jobId: job.id })}
-        />
-      ) : null}
-      {job.chainState === "SUBMITTED" ||
-      job.chainState === "VERIFIED" ||
-      job.chainState === "REJECTED" ||
-      job.chainState === "SETTLED" ? (
-        <PrimaryButton
-          title="View verification"
-          onPress={() => nav.navigate("Verification", { jobId: job.id })}
-        />
-      ) : null}
-      <PrimaryButton
-        title="Activity"
-        tone="quiet"
-        onPress={() => nav.navigate("Activity", { jobId: job.id })}
-      />
+      <PrimaryButton title="Activity" tone="quiet" onPress={() => nav.navigate("Activity", { jobId: job.id })} />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { color: colors.text, fontSize: 22, fontWeight: "800", flex: 1, marginRight: spacing.sm },
-  amount: { color: colors.primary, fontSize: 34, fontWeight: "800", marginTop: spacing.sm },
-  desc: { color: colors.muted, fontSize: 15, marginTop: 4 },
-  section: { color: colors.text, fontSize: 16, fontWeight: "800", marginTop: spacing.lg },
-  progress: { color: colors.primary, fontSize: 20, fontWeight: "800", marginTop: 4 },
-  req: { color: colors.text, fontSize: 14, marginTop: 4 },
-  muted: { color: colors.muted, fontSize: 14, marginTop: 2 },
-  error: { color: colors.red, fontSize: 14, marginTop: spacing.sm },
+const s = StyleSheet.create({
+  error: { color: colors.red, fontSize: 14, marginTop: spacing.md },
 });

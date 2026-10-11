@@ -4,7 +4,8 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Screen } from "../components/Screen";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { colors, spacing } from "../theme";
+import { TopBar, SectionLabel } from "../components/ui";
+import { colors, spacing, radius, font, t } from "../theme";
 import { parseUSDC } from "../lib/format";
 import { getApiBaseUrl } from "../backend/SolanaBackend";
 import { storeInspectionRequirements } from "../../../verification/example-job";
@@ -27,8 +28,6 @@ export function CreateJobScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // In devnet mode the backend publishes its verifier address — prefill it
-  // (editable override stays possible). Demo mode needs no verifier.
   useEffect(() => {
     if (backendKind !== "devnet" || verifier) return;
     const base = getApiBaseUrl();
@@ -36,9 +35,7 @@ export function CreateJobScreen() {
     fetch(`${base}/api/config`)
       .then((r) => (r.ok ? r.json() : null))
       .then((cfg) => {
-        if (cfg && typeof cfg.verifier === "string" && cfg.verifier) {
-          setVerifier(cfg.verifier);
-        }
+        if (cfg && typeof cfg.verifier === "string" && cfg.verifier) setVerifier(cfg.verifier);
       })
       .catch(() => undefined);
   }, [backendKind]);
@@ -46,16 +43,8 @@ export function CreateJobScreen() {
   const publish = async () => {
     setError(null);
     let paymentBaseUnits = 0;
-    try {
-      paymentBaseUnits = parseUSDC(amount);
-    } catch (e: any) {
-      setError(e.message);
-      return;
-    }
-    if (!worker.trim()) {
-      setError("Enter the worker wallet address.");
-      return;
-    }
+    try { paymentBaseUnits = parseUSDC(amount); } catch (e: any) { setError(e.message); return; }
+    if (!worker.trim()) { setError("Enter the worker wallet address."); return; }
     setBusy(true);
     try {
       const base = storeInspectionRequirements();
@@ -85,119 +74,47 @@ export function CreateJobScreen() {
       nav.replace("JobDetail", { jobId: job.id });
     } catch (e: any) {
       setError(e?.message ?? "Could not publish the job.");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   return (
-    <Screen>
-      <Text style={styles.label}>Job title</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholderTextColor={colors.muted} />
-      <Text style={styles.label}>Description</Text>
-      <TextInput
-        style={[styles.input, styles.multi]}
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        placeholderTextColor={colors.muted}
-      />
-      <Text style={styles.label}>Payment (USDC)</Text>
-      <TextInput
-        style={styles.input}
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
-        placeholder="150"
-        placeholderTextColor={colors.muted}
-      />
-      <Text style={styles.label}>Worker wallet</Text>
-      <TextInput
-        style={styles.input}
-        value={worker}
-        onChangeText={setWorker}
-        autoCapitalize="none"
-        placeholder="Worker address"
-        placeholderTextColor={colors.muted}
-      />
-      <Text style={styles.label}>Verifier wallet (devnet real funding)</Text>
-      <TextInput
-        style={styles.input}
-        value={verifier}
-        onChangeText={setVerifier}
-        autoCapitalize="none"
-        placeholder="Leave empty in demo mode"
-        placeholderTextColor={colors.muted}
-      />
-      <Text style={styles.label}>Checklist requirements</Text>
-      <Text style={styles.hint}>10 store visits included. Add extras if needed.</Text>
-      {extraItems.map((item, i) => (
-        <Text key={i} style={styles.item}>
-          • {item}
-        </Text>
-      ))}
-      <View style={styles.addRow}>
-        <TextInput
-          style={[styles.input, styles.addInput]}
-          value={newItem}
-          onChangeText={setNewItem}
-          placeholder="Extra step"
-          placeholderTextColor={colors.muted}
-        />
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.addBtn}
-          onPress={() => {
-            if (newItem.trim()) {
-              setExtraItems([...extraItems, newItem.trim()]);
-              setNewItem("");
-            }
-          }}
-        >
-          <Text style={styles.addBtnText}>Add</Text>
+    <Screen scroll>
+      <TopBar title="New job" onBack={() => nav.goBack()} />
+      <SectionLabel>Details</SectionLabel>
+      <TextInput style={s.input} value={title} onChangeText={setTitle} placeholderTextColor={colors.faint} />
+      <TextInput style={[s.input, s.multi]} value={description} onChangeText={setDescription} multiline placeholder="What needs doing…" placeholderTextColor={colors.faint} />
+      <SectionLabel style={{ marginTop: 20 }}>Payment · USDC</SectionLabel>
+      <TextInput style={s.input} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="150" placeholderTextColor={colors.faint} />
+      <SectionLabel style={{ marginTop: 20 }}>Assign</SectionLabel>
+      <TextInput style={s.input} value={worker} onChangeText={setWorker} autoCapitalize="none" placeholder="Worker wallet" placeholderTextColor={colors.faint} />
+      <TextInput style={s.input} value={verifier} onChangeText={setVerifier} autoCapitalize="none" placeholder="Verifier wallet (devnet)" placeholderTextColor={colors.faint} />
+      <SectionLabel style={{ marginTop: 20 }}>Extra checklist steps</SectionLabel>
+      {extraItems.map((item, i) => (<Text key={i} style={[t.item, { marginBottom: 6 }]}>• {item}</Text>))}
+      <View style={s.addRow}>
+        <TextInput style={[s.input, { flex: 1, marginBottom: 0 }]} value={newItem} onChangeText={setNewItem} placeholder="Add a step" placeholderTextColor={colors.faint} />
+        <TouchableOpacity accessibilityRole="button" style={s.addBtn} onPress={() => { if (newItem.trim()) { setExtraItems([...extraItems, newItem.trim()]); setNewItem(""); } }}>
+          <Text style={s.addBtnText}>Add</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.label}>Required photos: {minPhotos}</Text>
-      <View style={styles.stepRow}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.step}
-          onPress={() => setMinPhotos(Math.max(1, minPhotos - 1))}
-        >
-          <Text style={styles.stepText}>−</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.step}
-          onPress={() => setMinPhotos(minPhotos + 1)}
-        >
-          <Text style={styles.stepText}>+</Text>
-        </TouchableOpacity>
+      <SectionLabel style={{ marginTop: 20 }}>Required photos · {minPhotos}</SectionLabel>
+      <View style={s.stepRow}>
+        <TouchableOpacity accessibilityRole="button" style={s.step} onPress={() => setMinPhotos(Math.max(1, minPhotos - 1))}><Text style={s.stepText}>−</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={s.step} onPress={() => setMinPhotos(minPhotos + 1)}><Text style={s.stepText}>+</Text></TouchableOpacity>
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton title="Fund & Publish" onPress={publish} loading={busy} />
+      {error ? <Text style={s.error}>{error}</Text> : null}
+      <PrimaryButton title={`Fund & publish · $${amount || "0"}`} onPress={publish} loading={busy} />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  label: { color: colors.text, fontSize: 15, fontWeight: "700", marginTop: spacing.md },
-  hint: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  input: {
-    backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1,
-    borderRadius: 12, color: colors.text, fontSize: 16, padding: spacing.sm, marginTop: 6,
-  },
+const s = StyleSheet.create({
+  input: { backgroundColor: colors.surface, borderColor: colors.line, borderWidth: 1.5, borderRadius: radius.sm, color: colors.ink, fontFamily: font.semibold, fontSize: 16, padding: 14, marginBottom: 12 },
   multi: { minHeight: 72, textAlignVertical: "top" },
-  item: { color: colors.text, fontSize: 14, marginTop: 4 },
   addRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  addInput: { flex: 1 },
-  addBtn: { backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: 12, padding: spacing.sm, marginTop: 6 },
-  addBtnText: { color: colors.primary, fontWeight: "800" },
-  stepRow: { flexDirection: "row", gap: spacing.sm, marginTop: 6 },
-  step: {
-    flex: 1, backgroundColor: colors.card, borderColor: colors.cardBorder, borderWidth: 1,
-    borderRadius: 12, padding: spacing.sm, alignItems: "center",
-  },
-  stepText: { color: colors.text, fontSize: 22, fontWeight: "800" },
-  error: { color: colors.red, fontSize: 14, marginTop: spacing.sm },
+  addBtn: { backgroundColor: colors.ink, borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 15 },
+  addBtnText: { color: "#fff", fontFamily: font.bold, fontSize: 15 },
+  stepRow: { flexDirection: "row", gap: spacing.sm },
+  step: { flex: 1, backgroundColor: colors.surface, borderColor: colors.line, borderWidth: 1.5, borderRadius: radius.sm, padding: 12, alignItems: "center" },
+  stepText: { color: colors.ink, fontSize: 22, fontFamily: font.bold },
+  error: { color: colors.red, fontSize: 14, marginTop: spacing.sm, fontFamily: font.medium },
 });

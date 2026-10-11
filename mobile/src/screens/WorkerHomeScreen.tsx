@@ -1,10 +1,11 @@
-import { StyleSheet, Text } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React from "react";
 import { Screen } from "../components/Screen";
 import { JobCard } from "../components/JobCard";
-import { colors, spacing } from "../theme";
+import { TopBar, VerraMark, Divider, Chip } from "../components/ui";
+import { t } from "../theme";
 import { useProofpay } from "../state/ProofpayContext";
 import type { RootStackParamList } from "../navigation/types";
 
@@ -20,19 +21,22 @@ export function WorkerHomeScreen() {
 
   return (
     <Screen>
-      <Text style={styles.heading}>Assigned jobs</Text>
-      {jobs.length === 0 ? (
-        <Text style={styles.empty}>No jobs assigned yet.</Text>
-      ) : (
-        jobs.map((job) => (
-          <JobCard key={job.id} job={job} onPress={() => nav.navigate("JobDetail", { jobId: job.id })} />
-        ))
-      )}
+      <TopBar title="Available work" right={<VerraMark size={24} />} />
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {jobs.length === 0 ? (
+          <Text style={[t.sub, { marginTop: 8 }]}>No jobs assigned yet.</Text>
+        ) : (
+          jobs.map((job, i) => (
+            <View key={job.id}>
+              {i > 0 ? <Divider /> : null}
+              <JobCard job={job} onPress={() => nav.navigate("JobDetail", { jobId: job.id })} />
+            </View>
+          ))
+        )}
+      </ScrollView>
+      {jobs.length > 0 ? (
+        <Chip tone="lilac" style={{ alignSelf: "center", marginTop: 8 }}>Tap a job to begin</Chip>
+      ) : null}
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  heading: { color: colors.text, fontSize: 20, fontWeight: "800", marginVertical: spacing.sm },
-  empty: { color: colors.muted, fontSize: 15 },
-});

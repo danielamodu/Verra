@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import { Screen } from "../components/Screen";
-import { StatusBadge } from "../components/StatusBadge";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { colors, spacing } from "../theme";
-import { formatUSDC } from "../lib/format";
+import { TopBar, Steps, Tile, Chip, Spacer } from "../components/ui";
+import { colors, t } from "../theme";
+import { formatUSDC, truncateAddress } from "../lib/format";
 import { useProofpay } from "../state/ProofpayContext";
 import type { RootStackParamList } from "../navigation/types";
 
@@ -20,68 +20,39 @@ export function SettlementScreen() {
   const [error, setError] = useState<string | null>(null);
 
   if (!job) {
-    return (
-      <Screen>
-        <Text style={styles.muted}>Job not found.</Text>
-      </Screen>
-    );
+    return (<Screen><TopBar title="Settlement" onBack={() => nav.goBack()} /><Text style={t.sub}>Job not found.</Text></Screen>);
   }
 
   const settle = async () => {
-    setError(null);
-    setBusy(true);
+    setError(null); setBusy(true);
     try {
-      // Devnet: the backend service (verifier-key holder) verifies + settles.
-      // Demo: records an explicitly non-on-chain receipt.
-      if (backendKind === "devnet") {
-        await requestSettlement(job.id);
-      } else {
-        await releasePayment(job.id);
-      }
+      if (backendKind === "devnet") await requestSettlement(job.id);
+      else await releasePayment(job.id);
       nav.replace("Receipt", { jobId: job.id });
-    } catch (e: any) {
-      setError(e?.message ?? "Settlement failed.");
-    } finally {
-      setBusy(false);
-    }
+    } catch (e: any) { setError(e?.message ?? "Settlement failed."); }
+    finally { setBusy(false); }
   };
 
   return (
     <Screen>
-      <View style={styles.hero}>
-        <StatusBadge kind="VERIFIED" />
-        <Text style={styles.heroAmount}>{formatUSDC(job.paymentBaseUnits)}</Text>
-        <Text style={styles.sub}>Verified and ready to settle.</Text>
-      </View>
-      {backendKind === "demo" ? (
-        <View style={styles.demoBox}>
-          <Text style={styles.demoText}>
-            DEMO — settlement here records a non-on-chain receipt. Real USDC moves
-            only via the devnet backend + verifier signatures.
-          </Text>
-        </View>
-      ) : (
-        <Text style={styles.body}>
-          The backend service verifies the attestation, signs verify_job with the
-          verifier key, and releases escrow. You will see both signatures on the receipt.
-        </Text>
-      )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton title="Settle" onPress={settle} loading={busy} />
+      <TopBar title="Settlement" onBack={() => nav.goBack()} />
+      <Steps total={5} current={5} />
+      <Tile>
+        <Text style={t.label}>RELEASING FROM ESCROW</Text>
+        <Text style={[t.big, { fontSize: 44, marginTop: 6 }]}>{formatUSDC(job.paymentBaseUnits)}</Text>
+        <Text style={[t.sub, { marginTop: 6 }]}>USDC → worker {truncateAddress(job.worker, 6)}</Text>
+      </Tile>
+      <Chip tone="green" style={{ marginTop: 18 }}>✓ Only a bonded verifier can release</Chip>
+      <Text style={[t.sub, { marginTop: 12 }]}>
+        {backendKind === "demo"
+          ? "Demo mode records a non-on-chain receipt. Real USDC moves only via the devnet backend + verifier signatures."
+          : "The backend verifies the attestation, signs verify_job with the verifier key, and releases escrow. Both signatures appear on the receipt."}
+      </Text>
+      {error ? <Text style={s.error}>{error}</Text> : null}
+      <Spacer />
+      <PrimaryButton title={`Release ${formatUSDC(job.paymentBaseUnits)}`} onPress={settle} loading={busy} />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  hero: { alignItems: "center", marginTop: spacing.xl },
-  heroAmount: { color: colors.primary, fontSize: 40, fontWeight: "800", marginVertical: spacing.sm },
-  sub: { color: colors.muted, fontSize: 15 },
-  muted: { color: colors.muted, fontSize: 14, textAlign: "center" },
-  body: { color: colors.muted, fontSize: 15, marginTop: spacing.lg, textAlign: "center" },
-  demoBox: {
-    borderColor: colors.amber, borderWidth: 1, borderRadius: 12,
-    padding: spacing.md, marginTop: spacing.md, backgroundColor: `${colors.amber}14`,
-  },
-  demoText: { color: colors.amber, fontSize: 13, fontWeight: "700" },
-  error: { color: colors.red, fontSize: 14, marginTop: spacing.sm, textAlign: "center" },
-});
+const s = StyleSheet.create({ error: { color: colors.red, fontSize: 14, marginTop: 12 } });
