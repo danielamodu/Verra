@@ -12,10 +12,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest && npm run test:node",
     "test:node": "ts-mocha -p ./tsconfig.json -t 10000 tests/solana-backend.test.ts tests/submit-ordering.test.ts",
-    "secrets-check": "node scripts/check-no-secrets.js"
+    "secrets-check": "node scripts/check-no-secrets.js",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
+    "@expo-google-fonts/outfit": "^0.4.3",
     "@noble/curves": "^1.4.0",
     "@react-navigation/native": "^7.0.0",
     "@react-navigation/native-stack": "^7.0.0",
@@ -28,6 +30,7 @@
     "expo-application": "~6.0.1",
     "expo-asset": "~11.0.0",
     "expo-crypto": "~14.0.1",
+    "expo-font": "~13.0.4",
     "expo-image-picker": "~16.0.3",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",

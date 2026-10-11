@@ -28,7 +28,8 @@
         {
           "cameraPermission": "ProofPay needs camera access to capture work evidence."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
