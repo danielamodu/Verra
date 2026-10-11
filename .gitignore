@@ -5,3 +5,11 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# devnet demo keypairs (secret — never commit)
+.devnet-keys/
+
+# Expo local cache + generated native project
+.expo/
+mobile/android/
+mobile/ios/
