@@ -1,39 +1,36 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { colors, spacing } from "../theme";
+import { colors, t } from "../theme";
 import { formatUSDC } from "../lib/format";
 import { chainStatus } from "../lib/status";
-import { StatusBadge } from "./StatusBadge";
+import { statusColor } from "../theme";
 import type { ProofpayJob } from "../backend/types";
 
+/** Clean list row: tinted mark · title + status · amount. Borderless; the
+ *  parent list separates rows with <Divider/>. */
 export function JobCard({ job, onPress }: { job: ProofpayJob; onPress: () => void }) {
   const status = chainStatus(job.chainState);
   return (
-    <TouchableOpacity accessibilityRole="button" onPress={onPress} style={styles.card}>
-      <View style={styles.row}>
-        <Text style={styles.title} numberOfLines={1}>
-          {job.title}
+    <TouchableOpacity accessibilityRole="button" onPress={onPress} activeOpacity={0.7} style={styles.row}>
+      <View style={styles.icon}>
+        <Text style={styles.iconText}>{(job.title || "·").charAt(0).toUpperCase()}</Text>
+      </View>
+      <View style={styles.mid}>
+        <Text style={styles.title} numberOfLines={1}>{job.title}</Text>
+        <Text style={[styles.status, { color: statusColor(status.kind) }]} numberOfLines={1}>
+          {status.label}
         </Text>
-        <StatusBadge kind={status.kind} label={status.label} />
       </View>
       <Text style={styles.amount}>{formatUSDC(job.paymentBaseUnits)}</Text>
-      <Text style={styles.desc} numberOfLines={2}>
-        {job.description}
-      </Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.card,
-    borderColor: colors.cardBorder,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { color: colors.text, fontSize: 17, fontWeight: "700", flex: 1, marginRight: spacing.sm },
-  amount: { color: colors.primary, fontSize: 26, fontWeight: "800", marginTop: spacing.xs },
-  desc: { color: colors.muted, fontSize: 14, marginTop: 4 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 4 },
+  icon: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.lilacTint, alignItems: "center", justifyContent: "center" },
+  iconText: { ...t.item, color: colors.lilacInk, fontSize: 18 },
+  mid: { flex: 1 },
+  title: { ...t.item },
+  status: { ...t.meta, marginTop: 2 },
+  amount: { ...t.amount, fontSize: 19 },
 });

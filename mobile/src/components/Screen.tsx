@@ -3,18 +3,38 @@ import { SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { colors, spacing } from "../theme";
 
-export function Screen({ children }: { children: React.ReactNode }) {
+/**
+ * Screen shell. Default is a flex column that fills the viewport, so a
+ * <Spacer/> pushes the primary CTA to the bottom. Pass `scroll` for
+ * content-heavy screens.
+ */
+export function Screen({
+  children,
+  scroll = false,
+}: {
+  children: React.ReactNode;
+  scroll?: boolean;
+}) {
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <View>{children}</View>
-      </ScrollView>
+      <StatusBar style="dark" />
+      {scroll ? (
+        <ScrollView
+          contentContainerStyle={styles.scrollBody}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={styles.fill}>{children}</View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  body: { padding: spacing.lg, paddingBottom: spacing.xl },
+  fill: { flex: 1, paddingHorizontal: 22, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  scrollBody: { paddingHorizontal: 22, paddingTop: spacing.sm, paddingBottom: spacing.lg },
 });

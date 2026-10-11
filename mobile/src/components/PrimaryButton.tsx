@@ -1,35 +1,36 @@
 import { StyleSheet, Text, TouchableOpacity, ActivityIndicator, ViewStyle } from "react-native";
-import { colors, spacing } from "../theme";
+import { colors, spacing, radius, font } from "../theme";
 
 export function PrimaryButton({
   title,
   onPress,
   disabled,
   loading,
-  tone,
+  tone = "primary",
 }: {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  tone?: "primary" | "quiet";
+  tone?: "primary" | "lilac" | "quiet";
 }) {
-  const quiet = tone === "quiet";
+  const bg =
+    tone === "lilac" ? styles.lilac : tone === "quiet" ? styles.quiet : styles.primary;
+  const label =
+    tone === "quiet" ? styles.quietLabel : tone === "lilac" ? styles.lilacLabel : styles.primaryLabel;
+  const spinner = tone === "primary" ? "#fff" : colors.ink;
   return (
     <TouchableOpacity
       accessibilityRole="button"
       onPress={onPress}
+      activeOpacity={0.85}
       disabled={disabled || loading}
-      style={[
-        styles.base,
-        quiet ? styles.quiet : styles.primary,
-        (disabled || loading) && styles.disabled,
-      ] as ViewStyle[]}
+      style={[styles.base, bg, (disabled || loading) && styles.disabled] as ViewStyle[]}
     >
       {loading ? (
-        <ActivityIndicator color={quiet ? colors.text : colors.primaryText} />
+        <ActivityIndicator color={spinner} />
       ) : (
-        <Text style={[styles.label, quiet ? styles.quietLabel : styles.primaryLabel]}>{title}</Text>
+        <Text style={[styles.label, label]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -37,16 +38,18 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: radius.md,
+    paddingVertical: 17,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
-  primary: { backgroundColor: colors.primary },
-  quiet: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder },
-  disabled: { opacity: 0.45 },
-  label: { fontSize: 17, fontWeight: "700" },
-  primaryLabel: { color: colors.primaryText },
-  quietLabel: { color: colors.text },
+  primary: { backgroundColor: colors.ink },
+  lilac: { backgroundColor: colors.lilac },
+  quiet: { backgroundColor: colors.bg, borderWidth: 1.5, borderColor: colors.line },
+  disabled: { opacity: 0.4 },
+  label: { fontSize: 16, fontFamily: font.bold, letterSpacing: -0.2 },
+  primaryLabel: { color: "#FFFFFF" },
+  lilacLabel: { color: "#20102C" },
+  quietLabel: { color: colors.ink },
 });
