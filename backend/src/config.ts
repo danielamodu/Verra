@@ -14,6 +14,10 @@ export interface BackendConfig {
   /** Filesystem path to the verifier keypair JSON (backend-only secret). */
   verifierKeypairPath: string;
   storageDir: string;
+  /** Optional SKR bond-gating (verra_bond). All three required to activate. */
+  bondProgramId?: string;
+  skrMint?: string;
+  minBond?: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig {
@@ -30,5 +34,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
       env.VERIFIER_KEYPAIR_PATH
     ),
     storageDir: env.STORAGE_DIR ?? "./.storage",
+    bondProgramId: env.BOND_PROGRAM_ID,
+    skrMint: env.SKR_MINT,
+    minBond: env.MIN_BOND,
   };
 }
