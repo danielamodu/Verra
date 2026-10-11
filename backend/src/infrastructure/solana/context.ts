@@ -4,20 +4,39 @@
  * It is never logged, returned, or persisted.
  */
 import * as fs from "node:fs";
-import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, BorshAccountsCoder, Program, Wallet } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
 import idl from "../../../../idl/proofpay.json";
+import bondIdl from "../../../../idl/verra_bond.json";
 import { deriveJobPda } from "../../../../verification/onchain";
+
+/**
+ * Verifier-bond read gate (verra_bond program). Present only when the backend
+ * is configured for bond-gating; absent, settlement behaves as the untouched
+ * baseline. See docs/skr-bond.md.
+ */
+export interface BondStatus {
+  exists: boolean;
+  active: boolean;
+  amount: bigint;
+}
+export interface BondGate {
+  minBond: bigint;
+  skrMint: string;
+  readBond(verifier: string): Promise<BondStatus>;
+}
 
 export interface SolanaContext {
   connection: Connection;
   program: any;
   programId: PublicKey;
   verifierKeypair: Keypair;
+  /** Optional SKR bond gate; when set, settlement fails closed on an unbonded verifier. */
+  bond?: BondGate;
 }
 
 let cached: SolanaContext | null = null;
@@ -138,3 +157,45 @@ export async function tokenBalance(
 }
 
 export { TOKEN_PROGRAM_ID };
+
+const bondCoder = new BorshAccountsCoder(bondIdl as any);
+
+/** Derive the VerifierBond PDA for a verifier under the verra_bond program. */
+export function verifierBondPda(
+  bondProgramId: PublicKey,
+  verifier: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("bond"), verifier.toBuffer()],
+    bondProgramId
+  )[0];
+}
+
+/**
+ * Build a bond gate backed by live RPC reads of the verra_bond program.
+ * `readBond` fails closed: a decode error or missing account reports an
+ * inactive bond (never silently "authorized").
+ */
+export function getBondGate(
+  connection: Connection,
+  bondProgramIdStr: string,
+  skrMint: string,
+  minBond: bigint
+): BondGate {
+  const bondProgramId = new PublicKey(bondProgramIdStr);
+  return {
+    minBond,
+    skrMint,
+    async readBond(verifier: string): Promise<BondStatus> {
+      const pda = verifierBondPda(bondProgramId, new PublicKey(verifier));
+      const info = await connection.getAccountInfo(pda, "confirmed");
+      if (!info) return { exists: false, active: false, amount: 0n };
+      const acc: any = bondCoder.decode("VerifierBond", info.data);
+      // Normalize enum casing: coder.decode yields IDL names ("Active"),
+      // program.account.fetch yields camelCase ("active"). Compare lower-cased.
+      const stateKey = acc?.state ? Object.keys(acc.state)[0] : undefined;
+      const amount = BigInt(acc?.amount?.toString?.() ?? "0");
+      return { exists: true, active: String(stateKey).toLowerCase() === "active", amount };
+    },
+  };
+}
