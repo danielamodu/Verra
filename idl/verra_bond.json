@@ -1,0 +1,1302 @@
+{
+  "address": "fza6wCHJfcQ3DVDjPg7vmC3zJGgTQymKoN844by3qBy",
+  "metadata": {
+    "name": "verra_bond",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Verra verifier-bond: SKR staking + arbiter slashing for verification security (additive to proofpay)"
+  },
+  "docs": [
+    "Verra verifier-bond program.",
+    "",
+    "SKR staking that gives Verra's verification a real economic security",
+    "layer: a verifier must post (and keep) an SKR bond to be authorized to",
+    "run `verify_job`; a dispute lets a program-admin-configured arbiter slash",
+    "that bond. This program is ADDITIVE — it never touches the `proofpay`",
+    "escrow program or its USDC settlement. Bond-gating of authorization is",
+    "enforced by the backend (see docs/skr-bond.md); it is NOT yet a direct",
+    "on-chain CPI invariant inside `proofpay`.",
+    "",
+    "Trust note: the arbiter and the backend authorization check are TRUSTED",
+    "roles. This raises the cost of a dishonest verifier (their stake is at",
+    "risk); it does not make verification trustless.",
+    "",
+    "Accounts:",
+    "- BondConfig  PDA [\"config\"]        — admin-owned policy (arbiter, mint,",
+    "min bond, treasury).",
+    "- VerifierBond PDA [\"bond\", verifier] — one bond per verifier.",
+    "- vault: ATA(skr_mint) owned by the VerifierBond PDA — holds the stake."
+  ],
+  "instructions": [
+    {
+      "name": "init_config",
+      "docs": [
+        "Initialize the single program config. The signer becomes `admin`.",
+        "The arbiter is set HERE, by the admin — a verifier can never choose",
+        "their own arbiter."
+      ],
+      "discriminator": [
+        23,
+        235,
+        115,
+        232,
+        168,
+        96,
+        1,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "skr_mint"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "arbiter",
+          "type": "pubkey"
+        },
+        {
+          "name": "min_bond",
+          "type": "u64"
+        },
+        {
+          "name": "treasury",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "lock_bond",
+      "docs": [
+        "Arbiter-only: lock a bond so the verifier cannot withdraw while a",
+        "dispute is unresolved (or while the verifier is still required active)."
+      ],
+      "discriminator": [
+        30,
+        142,
+        81,
+        179,
+        253,
+        64,
+        109,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "arbiter",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond.verifier",
+                "account": "VerifierBond"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_arbiter",
+      "docs": [
+        "Admin-only: rotate the arbiter. Rejects any non-admin signer."
+      ],
+      "discriminator": [
+        15,
+        205,
+        194,
+        180,
+        172,
+        213,
+        113,
+        211
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_arbiter",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_min_bond",
+      "docs": [
+        "Admin-only: adjust the minimum bond."
+      ],
+      "discriminator": [
+        184,
+        149,
+        157,
+        15,
+        13,
+        7,
+        55,
+        224
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "min_bond",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "slash_bond",
+      "docs": [
+        "Arbiter-only: slash part or all of a bond to the configured treasury.",
+        "Partial slash leaves the bond Active (likely below minimum, so the",
+        "verifier is no longer authorized until they top up). A full slash",
+        "drains the vault and marks the bond Slashed."
+      ],
+      "discriminator": [
+        143,
+        246,
+        51,
+        243,
+        88,
+        198,
+        217,
+        48
+      ],
+      "accounts": [
+        {
+          "name": "arbiter",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond.verifier",
+                "account": "VerifierBond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config.skr_mint",
+                "account": "BondConfig"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "stake_bond",
+      "docs": [
+        "Verifier stakes (or tops up) SKR. Works from a fresh bond and from a",
+        "previously Withdrawn or Slashed bond (re-staking). After the transfer",
+        "the running total must be >= the configured minimum, so a stake that",
+        "does not reach the floor is rejected."
+      ],
+      "discriminator": [
+        14,
+        142,
+        49,
+        222,
+        52,
+        70,
+        70,
+        204
+      ],
+      "accounts": [
+        {
+          "name": "verifier",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "verifier"
+              }
+            ]
+          }
+        },
+        {
+          "name": "skr_mint"
+        },
+        {
+          "name": "verifier_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "verifier"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "skr_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "skr_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "unlock_bond",
+      "docs": [
+        "Arbiter-only: clear a lock."
+      ],
+      "discriminator": [
+        107,
+        195,
+        132,
+        102,
+        2,
+        105,
+        127,
+        229
+      ],
+      "accounts": [
+        {
+          "name": "arbiter",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond.verifier",
+                "account": "VerifierBond"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdraw_bond",
+      "docs": [
+        "Verifier withdraws their full remaining bond. Only from Active state",
+        "and only when NOT locked — a locked bond (dispute unresolved, or the",
+        "verifier still required) cannot be withdrawn."
+      ],
+      "discriminator": [
+        222,
+        199,
+        141,
+        31,
+        188,
+        93,
+        155,
+        40
+      ],
+      "accounts": [
+        {
+          "name": "verifier",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "bond",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "verifier"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config.skr_mint",
+                "account": "BondConfig"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "verifier_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BondConfig",
+      "discriminator": [
+        142,
+        20,
+        216,
+        1,
+        7,
+        142,
+        247,
+        125
+      ]
+    },
+    {
+      "name": "VerifierBond",
+      "discriminator": [
+        101,
+        42,
+        68,
+        148,
+        240,
+        243,
+        156,
+        58
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ArbiterChanged",
+      "discriminator": [
+        249,
+        187,
+        231,
+        57,
+        34,
+        115,
+        243,
+        65
+      ]
+    },
+    {
+      "name": "BondLockChanged",
+      "discriminator": [
+        58,
+        82,
+        190,
+        104,
+        140,
+        59,
+        240,
+        140
+      ]
+    },
+    {
+      "name": "BondSlashed",
+      "discriminator": [
+        59,
+        7,
+        252,
+        195,
+        234,
+        156,
+        42,
+        54
+      ]
+    },
+    {
+      "name": "BondStaked",
+      "discriminator": [
+        152,
+        57,
+        210,
+        94,
+        172,
+        130,
+        236,
+        200
+      ]
+    },
+    {
+      "name": "BondWithdrawn",
+      "discriminator": [
+        111,
+        192,
+        154,
+        231,
+        58,
+        115,
+        130,
+        103
+      ]
+    },
+    {
+      "name": "ConfigInitialized",
+      "discriminator": [
+        181,
+        49,
+        200,
+        156,
+        19,
+        167,
+        178,
+        91
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidAmount",
+      "msg": "Amount must be greater than zero."
+    },
+    {
+      "code": 6001,
+      "name": "InvalidArbiter",
+      "msg": "Arbiter pubkey is invalid."
+    },
+    {
+      "code": 6002,
+      "name": "InvalidTreasury",
+      "msg": "Treasury pubkey is invalid."
+    },
+    {
+      "code": 6003,
+      "name": "UnauthorizedAdmin",
+      "msg": "Only the program admin may perform this action."
+    },
+    {
+      "code": 6004,
+      "name": "UnauthorizedArbiter",
+      "msg": "Only the configured arbiter may perform this action."
+    },
+    {
+      "code": 6005,
+      "name": "UnauthorizedVerifier",
+      "msg": "Only the bonded verifier may perform this action."
+    },
+    {
+      "code": 6006,
+      "name": "InvalidMint",
+      "msg": "Token mint does not match the configured SKR mint."
+    },
+    {
+      "code": 6007,
+      "name": "InvalidDestination",
+      "msg": "Destination token account is not owned by the expected authority."
+    },
+    {
+      "code": 6008,
+      "name": "BelowMinimumBond",
+      "msg": "Resulting bond is below the configured minimum."
+    },
+    {
+      "code": 6009,
+      "name": "BondNotActive",
+      "msg": "Bond is not in an active state."
+    },
+    {
+      "code": 6010,
+      "name": "BondLocked",
+      "msg": "Bond is locked and cannot be withdrawn."
+    },
+    {
+      "code": 6011,
+      "name": "InsufficientBond",
+      "msg": "Bond has insufficient balance for this operation."
+    },
+    {
+      "code": 6012,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow."
+    }
+  ],
+  "types": [
+    {
+      "name": "ArbiterChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "previous",
+            "type": "pubkey"
+          },
+          {
+            "name": "arbiter",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "arbiter",
+            "type": "pubkey"
+          },
+          {
+            "name": "skr_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "min_bond",
+            "type": "u64"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondLockChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "locked",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondSlashed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "remaining",
+            "type": "u64"
+          },
+          {
+            "name": "arbiter",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondStaked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "total",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "None"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Slashed"
+          },
+          {
+            "name": "Withdrawn"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondWithdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "arbiter",
+            "type": "pubkey"
+          },
+          {
+            "name": "skr_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "min_bond",
+            "type": "u64"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VerifierBond",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "verifier",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "BondState"
+              }
+            }
+          },
+          {
+            "name": "locked",
+            "type": "bool"
+          },
+          {
+            "name": "staked_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
