@@ -16,6 +16,7 @@ import { VerificationScreen } from "../screens/VerificationScreen";
 import { SettlementScreen } from "../screens/SettlementScreen";
 import { ReceiptScreen } from "../screens/ReceiptScreen";
 import { ActivityScreen } from "../screens/ActivityScreen";
+import { StakeScreen } from "../screens/StakeScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -44,6 +45,7 @@ export function RootNavigator() {
         <Stack.Screen name="Settlement" component={SettlementScreen} options={{ title: "Settlement" }} />
         <Stack.Screen name="Receipt" component={ReceiptScreen} options={{ title: "Verra Receipt" }} />
         <Stack.Screen name="Activity" component={ActivityScreen} options={{ title: "Activity" }} />
+        <Stack.Screen name="Stake" component={StakeScreen} options={{ title: "Verifier bond" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

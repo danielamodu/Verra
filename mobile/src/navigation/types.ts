@@ -16,4 +16,5 @@ export type RootStackParamList = {
   Settlement: { jobId: string };
   Receipt: { jobId: string };
   Activity: { jobId: string };
+  Stake: undefined;
 };
