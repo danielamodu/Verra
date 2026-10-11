@@ -22,6 +22,7 @@ import { appendActivity } from "../activity/log";
 import { getJob } from "../jobs/service";
 import { rebuildAttestation, verifyAttestationDigest } from "../attestations/service";
 import { authorizeFor } from "../verification/service";
+import { ensureVerifierBonded } from "./bondGate";
 import {
   confirmSignature,
   escrowAtaFor,
@@ -113,6 +114,11 @@ export async function settleJob(
       `Job is ${job.state} — only VERIFIED jobs settle`
     );
   }
+
+  // Bond-gated authorization (fail closed). A verifier without an active,
+  // sufficient SKR bond is denied before any ticket/chain interaction.
+  // No-op when bond-gating is not configured (baseline USDC flow).
+  await ensureVerifierBonded(solana, job.verifier);
 
   const settlement = existing
     ? await db.settlement.update({
