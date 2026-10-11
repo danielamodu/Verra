@@ -7,9 +7,11 @@ skip-lint = false
 
 [programs.devnet]
 proofpay = "EmAPVEMNMa5vmS2GaFSjfNjg1JeWyUhy4fCe3c6PyoMp"
+verra_bond = "fza6wCHJfcQ3DVDjPg7vmC3zJGgTQymKoN844by3qBy"
 
 [programs.localnet]
 proofpay = "EmAPVEMNMa5vmS2GaFSjfNjg1JeWyUhy4fCe3c6PyoMp"
+verra_bond = "fza6wCHJfcQ3DVDjPg7vmC3zJGgTQymKoN844by3qBy"
 
 [registry]
 url = "https://api.apr.dev"

@@ -1,0 +1,23 @@
+[package]
+name = "verra_bond"
+version = "0.1.0"
+description = "Verra verifier-bond: SKR staking + arbiter slashing for verification security (additive to proofpay)"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "verra_bond"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+# init-if-needed: the bond PDA + vault ATA are created on first stake and
+# reused on top-up / re-stake (Anchor 0.31+ requires the explicit flag).
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = "0.31.1"
