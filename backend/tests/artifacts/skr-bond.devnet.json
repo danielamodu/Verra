@@ -1,0 +1,27 @@
+{
+  "note": "verra_bond devnet proof. SKR here is a MOCK mint — NOT real SKR.",
+  "cluster": "devnet",
+  "bondProgramId": "fza6wCHJfcQ3DVDjPg7vmC3zJGgTQymKoN844by3qBy",
+  "mockSkrMint": "AQQatwcmW5v14uXtdKHsCKFMRt2hiNUrBUEaYg8qTFQE",
+  "admin": "3jNEVjYZtMKHShfPLmS7tH8oKNngd42bU3sX7AJ1yxQD",
+  "arbiter": "DB4tBwESyrDKjMnDMuokqNj8VEFgPoRvnauJ7dQdHXFb",
+  "verifier": "4ZPdntrw4P4Bc2RTQArsGHMyDFBeiFNxLGhhNDRhUDva",
+  "treasury": "42SKU2hNU6soAVqAFEQ2wj51N8zMb7YWqpusirsVCCxX",
+  "minBond": "100000000000",
+  "signatures": {
+    "initConfig": "3czZzpjABg59VDKeKsbHbJVMPpSR2cF4zeZddMBd4uLDXpW9nuHXJJ8ADq6vqDXs5trrUhjrFxXSKFtLvP9fLamJ",
+    "stake": "49Dqk3YUbBui6J1aV64eKkxPfRbtDrkbGu2ca9tTMDUUMssu5KTNiB91pnwnW9vViepFwYLG92T1srNeKr3oaMHK",
+    "slash": "3KR1D4RDmXe34NXajXRy6mukS6ed8VyQ9V8y6bZeeS2qCi4FC8bMMKsbRNVf9tokKqEyTrFjzHb36A3GR7zdbpD3"
+  },
+  "afterStake": {
+    "state": "active",
+    "amount": "150000000000",
+    "locked": false
+  },
+  "afterSlash": {
+    "state": "active",
+    "amount": "110000000000",
+    "locked": false
+  },
+  "generatedAt": "2026-10-10T20:30:24.422Z"
+}
